@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>이미지 보기</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .image-container {
+            margin: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .image-container img {
+            max-width: 430px;
+            max-height: 500px;
+            width: auto;
+            height: auto;
+            cursor: pointer; /* 클릭 가능한 요소로 설정 */
+        }
+
+        .product-info {
+            margin-left: 20px;
+            text-align: left;
+        }
+
+        .cart-button {
+            background-color: rgb(250, 154, 98);
+            color: rgb(255, 255, 255);
+            border-radius:  10px;
+            border: 1.5px solid rgb(103, 102, 102);
+            cursor: pointer;
+            padding:5px 10px;
+            outline:none;
+        
+        }
+
+        .cart-button img {
+            width: 40px;
+            height: 40px;
+        }
+    </style>
+    <script>
+        function addToCart(productId) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/add-to-cart';
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'product_id';
+            input.value = productId;
+            form.appendChild(input);
+            document.body.appendChild(form);
+            form.submit();
+        }
+    </script>
+</head>
+<body>
+    <h1>이미지 목록</h1>
+    <div class="image-container">
+        <img src="/uploads/<%= codiId %>/<%= relativeImagePaths[0] %>" alt="이미지">
+        <div class="product-info">
+            <p>상품명: <%= product.name %></p>
+            <p>가격: <%= product.price %>원</p>
+            <p>배송비: 무료</p>
+            <p>조회수: <%= product.like %></p> 
+            <button class="cart-button" onclick="addToCart('<%= product.product_id %>')">
+                장바구니
+            </button>
+        </div>
+    </div>
+    <% for (let i = 1; i < relativeImagePaths.length; i++) { %>
+        <div class="image-container">
+            <img src="/uploads/<%= codiId %>/<%= relativeImagePaths[i] %>" alt="이미지">
+        </div>
+    <% } %>
+</body>
+</html>

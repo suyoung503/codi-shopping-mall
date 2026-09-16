@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>상품 등록</title>
+    <style>
+        .product-form {
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>상품 등록</h1>
+    <form id="mainForm" action="/upload" method="post" enctype="multipart/form-data">
+        <div id="productFormsContainer">
+            <div class="product-form">
+                <label for="name">상품 이름:</label>
+                <input type="text" name="name" required><br><br>
+
+                <label for="category">카테고리:</label>
+                <input type="text" name="category" required><br><br>
+
+                <label for="color">색상:</label>
+                <input type="text" name="color" required><br><br>
+
+                <label for="price">가격:</label>
+                <input type="number" name="price" required><br><br>
+
+                <label for="imageCount">이미지 개수:</label>
+                <input type="number" name="imageCount" required><br><br>
+
+                <label for="image">상품 이미지:</label>
+                <input type="file" name="image[]" multiple required><br><br>
+            </div>
+        </div>
+
+        <label for="codiPhoto">코디사진:</label>
+        <input type="file" id="codiPhoto" name="codiPhoto"><br><br>
+
+        <label for="weather">날씨:</label>
+        <input type="text" id="weather" name="weather" required><br><br>
+
+        <button type="button" onclick="addProductForm()">상품 추가</button>
+        <input type="submit" value="등록">
+    </form>
+
+    <script>
+        function addProductForm() {
+            const container = document.getElementById('productFormsContainer');
+            const newProductForm = document.createElement('div');
+            newProductForm.className = 'product-form';
+            newProductForm.innerHTML = `
+                <label for="name">상품 이름:</label>
+                <input type="text" name="name" required><br><br>
+
+                <label for="category">카테고리:</label>
+                <input type="text" name="category" required><br><br>
+
+                <label for="color">색상:</label>
+                <input type="text" name="color" required><br><br>
+
+                <label for="price">가격:</label>
+                <input type="number" name="price" required><br><br>
+
+                <label for="imageCount">이미지 개수:</label>
+                <input type="number" name="imageCount" required><br><br>
+
+                <label for="image">상품 이미지:</label>
+                <input type="file" name="image[]" multiple required><br><br>
+            `;
+            container.appendChild(newProductForm);
+        }
+    </script>
+    
+</body>
+</html>

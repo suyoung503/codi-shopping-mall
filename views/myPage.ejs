@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <title>My Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+
+        nav {
+            width: 100%;
+            background-color: #333;
+            overflow: hidden;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-left,
+        .nav-right {
+            display: flex;
+        }
+
+        .nav-left {
+            margin-left: 20px;
+        }
+
+        .nav-right {
+            margin-right: 20px;
+        }
+
+        nav ul {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            display: flex;
+        }
+
+        nav ul li {
+            display: inline;
+        }
+
+        #user-info ul li span a,
+        .pt-data ul li h3 a {
+            display: block;
+            color: black;
+            text-align: left;
+            padding: 14px 0px;
+            text-decoration: none;
+        }
+
+        nav ul li a {
+            display: block;
+            color: white;
+            text-align: center;
+            padding: 14px 16px;
+            text-decoration: none;
+        }
+
+        nav ul li a:hover {
+            background-color: #ddd;
+            color: black;
+        }
+
+        .banner {
+            background-color: #f0f0f0;
+            text-align: center;
+            padding: 10px 0;
+            margin-bottom: 20px;
+        }
+
+        .banner-text {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .user-info,
+        .pt-data {
+            margin-bottom: 20px;
+        }
+
+        .user-info ul,
+        .pt-data ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .user-info ul li,
+        .pt-data ul li {
+            background: #f0f0f0;
+            margin: 5px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .clothes-item {
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .clothes-img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .delete-button {
+            background-color: #fa976a;
+          
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+
+        .delete-button:hover {
+            background-color: #fa742c;
+        }
+    </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            fetch('/check-login-status')
+                .then(response => response.json())
+                .then(data => {
+                    const navRight = document.querySelector('.nav-right ul');
+
+                    if (data.loggedIn) {
+                        const myPageLink = document.createElement('li');
+                        myPageLink.innerHTML = '<a href="/mypage">마이페이지</a>';
+                        navRight.appendChild(myPageLink);
+
+                        const logoutLink = document.createElement('li');
+                        logoutLink.innerHTML = '<a href="/logout">로그아웃</a>';
+                        navRight.appendChild(logoutLink);
+                    } else {
+                        const loginLink = document.createElement('li');
+                        loginLink.innerHTML = '<a href="/login">로그인</a>';
+                        navRight.appendChild(loginLink);
+                    }
+                })
+                .catch(error => console.error('Error checking login status:', error));
+
+            const paymentButton = document.getElementById('paymentButton');
+
+            paymentButton.addEventListener('click', function () {
+                const checkboxes = document.querySelectorAll('#pt-data input[type="checkbox"]:checked');
+                const selectedProducts = [];
+
+                checkboxes.forEach(function (checkbox) {
+                    const parentLi = checkbox.closest('li');
+                    const nameElement = parentLi.querySelector('h3');
+                    const categoryElement = parentLi.querySelector('p:nth-of-type(1)');
+                    const colorElement = parentLi.querySelector('p:nth-of-type(2)');
+                    const priceElement = parentLi.querySelector('p:nth-of-type(3)');
+
+                    if (nameElement && categoryElement && colorElement && priceElement) {
+                        const productInfo = {
+                            name: nameElement.textContent.trim(),
+                            category: categoryElement.textContent.replace('카테고리: ', '').trim(),
+                            color: colorElement.textContent.replace('색상: ', '').trim(),
+                            price: priceElement.textContent.replace('가격: ', '').replace('원', '').trim(),
+                            id: checkbox.id // Add the product ID
+                        };
+
+                        selectedProducts.push(productInfo);
+                    }
+                });
+
+                const productNames = selectedProducts.map(product => product.name).join('\n');
+                const confirmation = confirm(`선택된 상품: \n${productNames}\n결제하시겠습니까?`);
+                if (confirmation) {
+                    alert("결제가 완료되었습니다.");
+                } else {
+                    alert("결제가 취소되었습니다.");
+                }
+
+            });
+
+            const deleteButtons = document.querySelectorAll('.delete-button');
+            deleteButtons.forEach(button => {
+                button.addEventListener('click', function () {
+                    const productId = this.getAttribute('data-product-id');
+                    // Remove the product from the DOM
+                    const productItem = document.querySelector(`li[data-product-id="${productId}"]`);
+                    if (productItem) {
+                        productItem.remove();
+                    } else {
+                        console.error('Product not found in the DOM');
+                    }
+
+                    // Send request to delete the product from the database
+                    fetch(`/delete-product/${productId}`, {
+                        method: 'DELETE'
+                    })
+                        .then(response => {
+                            if (response.ok) {
+                                console.log('Product deleted successfully from the database');
+                                // Update the cart on the server
+                                fetch(`/update-cart/${productId}`, {
+                                    method: 'PUT',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({ action: 'remove' }) // Specify that we are removing the product
+                                })
+                                    .then(response => {
+                                        if (response.ok) {
+                                            
+                                        } else {
+                                            console.error('Failed to update cart');
+                                        }
+                                    })
+                                    .catch(error => console.error('Error updating cart:', error));
+                            } else {
+                                console.error('Failed to delete product from the database');
+                            }
+                        })
+                        .catch(error => console.error('Error deleting product:', error));
+                });
+            });
+
+            // Update payment button text based on the number of selected products
+            function updatePaymentButtonText() {
+                const selectedCount = document.querySelectorAll('#pt-data input[type="checkbox"]:checked').length;
+                paymentButton.textContent = `결제 (${selectedCount}개)`;
+            }
+
+            const checkboxes = document.querySelectorAll('#pt-data input[type="checkbox"]');
+            checkboxes.forEach(function (checkbox) {
+                checkbox.addEventListener('change', updatePaymentButtonText);
+            });
+
+        });
+    </script>
+
+</head>
+
+
+<body>
+    <!-- navigation -->
+    <nav>
+        <div class="nav-left">
+            <ul>
+                <li><a href="/">아뜨랑스에 오신걸 환영합니다</a></li>
+            </ul>
+        </div>
+        <div class="nav-right">
+            <ul>
+                <li><a href="/">코디</a></li>
+                <li><a href="/clothes">옷</a></li>
+            </ul>
+        </div>
+    </nav>
+    <!-- banner -->
+    <div class="banner">
+        <p class="banner-text">어서오세요 아뜨랑스에!</p>
+    </div>
+    <!-- user info -->
+    <div id="user-info" class="user-info">
+        <h2>회원 정보</h2>
+        <ul>
+            <li>이름: <span>
+                    <%= user.id %>
+                </span></li>
+            <li>비밀번호: <span>
+                    <%= user.password%>
+                </span></li>
+            <li>주소: <span>
+                    <%= user.address %>
+                </span></li>
+            <li>전화번호: <span>
+                    <%= user.phone %>
+                </span></li>
+        </ul>
+    </div>
+    <% if (user.id==='admin' ) { %>
+        <div class="product-registration">
+            <button onclick="location.href='/admin'">상품등록</button>
+        </div>
+        <% } %>
+            <!-- PT data -->
+            <div id="pt-data" class="pt-data">
+                <h2>장바구니</h2>
+                <button id="paymentButton">결제</button>
+
+                <ul>
+                    <% ptData.forEach(function (product, index) { %>
+                        <li data-product-id="<%= product.product_id %>">
+                            <!-- 체크박스 -->
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="checkbox<%= index %>">
+                                <span class="checkbox-custom"></span>
+                            </label>
+                            <!-- 상품 정보 -->
+                            <h3><a href="http://localhost:3002/image/<%= product.product_id %>">
+                                    <%= product.name %>
+                                </a></h3>
+                            <p>카테고리: <%= product.category %>
+                            </p>
+                            <p>색상: <%= product.color %>
+                            </p>
+                            <p>가격: <%= product.price %>원</p>
+                            <!-- 삭제 버튼 -->
+                            <button class="delete-button" data-product-id="<%= product.product_id %>">삭제</button>
+                        </li>
+                        <% }); %>
+                </ul>
+            </div>
+</body>
+
+</html>

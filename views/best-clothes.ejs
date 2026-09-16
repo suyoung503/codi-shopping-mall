@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <title>옷 목록</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+
+        nav {
+            width: 100%;
+            background-color: #333;
+            overflow: hidden;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-left,
+        .nav-right {
+            display: flex;
+        }
+
+        .nav-left {
+            margin-left: 20px;
+        }
+
+        .nav-right {
+            margin-right: 20px;
+        }
+
+        nav ul {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            display: flex;
+        }
+
+        nav ul li {
+            display: inline;
+        }
+
+        nav ul li a {
+            display: block;
+            color: white;
+            text-align: center;
+            padding: 14px 16px;
+            text-decoration: none;
+        }
+
+        nav ul li a:hover {
+            background-color: #ddd;
+            color: black;
+        }
+
+        .banner {
+            background-color: #f0f0f0;
+            text-align: center;
+            padding: 10px 0;
+            margin-bottom: 20px;
+        }
+
+        .banner-text {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .clothes-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+
+        .clothes-item {
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .clothes-img {
+            max-width: 100%;
+            max-height: 300px;
+            height: auto;
+        }
+
+        .category-select {
+            float: left;
+            margin-bottom: 20px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+        }
+    </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // 로그인 상태 확인 및 네비게이션 설정
+            fetch('/check-login-status')
+                .then(response => response.json())
+                .then(data => {
+                    const navRight = document.querySelector('.nav-right ul');
+
+                    if (data.loggedIn) {
+                        const myPageLink = document.createElement('li');
+                        myPageLink.innerHTML = '<a href="/mypage">마이페이지</a>';
+                        navRight.appendChild(myPageLink);
+
+                        const logoutLink = document.createElement('li');
+                        logoutLink.innerHTML = '<a href="/logout">로그아웃</a>';
+                        navRight.appendChild(logoutLink);
+                    } else {
+                        const loginLink = document.createElement('li');
+                        loginLink.innerHTML = '<a href="/login">로그인</a>';
+                        navRight.appendChild(loginLink);
+                    }
+                })
+                .catch(error => console.error('Error checking login status:', error));
+
+            const clothesGrid = document.getElementById('clothes-grid');
+            const categorySelect = document.getElementById('category-select');
+
+            function renderClothes(data) {
+                clothesGrid.innerHTML = '';
+                data.forEach(product => {
+                    const imageArray = product.image.split(',').map(image => image.trim());
+                    const firstImagePath = imageArray[0];
+                    const imageName = firstImagePath.split('/').pop();
+                    const imageUrlWithCodiId = `/uploads/${product.codi_id}/${encodeURIComponent(imageName)}`;
+
+                    const item = document.createElement('div');
+                    item.classList.add('clothes-item');
+
+                    item.innerHTML = `
+                        <h2>${product.name}</h2>
+                        <img class="clothes-img" src="${imageUrlWithCodiId}" alt="${product.name}">
+                        <p>카테고리: ${product.category}</p>
+                        <p>색상: ${product.color}</p>
+                        <p>가격: ${product.price}원</p>
+                        <p>조회수: ${product.like}</p>
+                    `;
+                    clothesGrid.appendChild(item);
+
+                    // 옷 사진을 클릭했을 때 이벤트 추가
+                    item.addEventListener('click', function () {
+                        const productName = product.name;
+                        fetch(`/api/product-id?productName=${encodeURIComponent(productName)}`)
+                            .then(response => response.json())
+                            .then(data => {
+                                const productId = data.productId;
+                                window.location.href = `/image/${productId}`;
+                            })
+                            .catch(error => console.error('Error fetching product ID:', error));
+                    });
+                });
+            }
+
+            categorySelect.addEventListener('change', function () {
+                const selectedCategory = categorySelect.value;
+                fetch(`/api/clothes?category=${encodeURIComponent(selectedCategory)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        // 좋아요 순으로 정렬
+                        data.sort((a, b) => b.like - a.like);
+                        renderClothes(data);
+                    })
+                    .catch(error => console.error('Error fetching filtered clothes data:', error));
+            });
+
+            // 초기 상품 데이터 로드
+            fetch('/api/clothes')
+                .then(response => response.json())
+                .then(data => {
+                    // 좋아요 순으로 정렬
+                    data.sort((a, b) => b.like - a.like);
+                    renderClothes(data);
+                })
+                .catch(error => console.error('Error fetching clothes data:', error));
+
+            // 카테고리 목록 로드
+            fetch('/api/categories')
+                .then(response => response.json())
+                .then(categories => {
+                    categories.forEach(category => {
+                        const option = document.createElement('option');
+                        option.value = category;
+                        option.textContent = category;
+                        categorySelect.appendChild(option);
+                    });
+                })
+                .catch(error => console.error('Error fetching categories:', error));
+        });
+    </script>
+</head>
+
+<body>
+    <nav>
+        <div class="nav-left">
+            <ul>
+                <li><a href="/">아뜨랑스에 오신걸 환영합니다</a></li>
+            </ul>
+        </div>
+        <div class="nav-right">
+            <ul>
+                <li><a href="/">코디</a></li>
+                <li><a href="/clothes">옷</a></li>
+                <li><a href="/clothes/best">Best</a></li>
+            </ul>
+        </div>
+    </nav>
+    <div class="banner">
+        <p class="banner-text">어서오세요 아뜨랑스에!</p>
+    </div>
+    <div class="container">
+        <div>
+            <h1>best 목록</h1>
+            <select id="category-select" class="category-select">
+
+                <option value="">전체</option>
+                <!-- Categories will be populated here by JavaScript -->
+            </select>
+        </div>
+
+        <div id="clothes-grid" class="clothes-grid"></div>
+    </div>
+</body>
+
+</html>
