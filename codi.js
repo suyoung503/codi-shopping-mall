@@ -6,10 +6,16 @@ const multer = require('multer');
 const fs = require('fs');
 const session = require('express-session');
 const bodyParser = require('body-parser');
-const app = express();
-const port = 3002;
+const { registerAuthRoutes } = require('./lib/auth');
+const { clothesQuery, bestClothesQuery } = require('./lib/product-queries');
 
-const connection = mysql.createConnection({
+function createApp({ db, sessionStore } = {}) {
+const app = express();
+const isProduction = process.env.NODE_ENV === 'production';
+if (isProduction && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32 || ['dev-only-change-me', 'replace_with_a_random_secret'].includes(process.env.SESSION_SECRET))) {
+    throw new Error('Set a strong SESSION_SECRET (at least 32 characters) in production.');
+}
+const connection = db || mysql.createConnection({
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
@@ -33,7 +39,9 @@ const upload = multer({ storage: storage });
 app.use(session({
     secret: process.env.SESSION_SECRET || 'dev-only-change-me',
     resave: false,
-    saveUninitialized: true
+    saveUninitialized: false,
+    store: sessionStore,
+    cookie: { httpOnly: true, sameSite: 'lax', secure: isProduction }
 }));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -213,13 +221,11 @@ app.get('/check-login-status', (req, res) => {
         res.json({ loggedIn: false });
     }
 });
-const router = express.Router();
 
 
 app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'admin.html'));
 });
-module.exports = router;
 
 // 파일 업로드 및 데이터베이스 저장 라우팅
 app.post('/upload', upload.fields([{ name: 'codiPhoto', maxCount: 1 }, { name: 'image[]'}]), (req, res) => {
@@ -324,29 +330,8 @@ app.get('/register', (req, res) => {
    
     res.sendFile(path.join(__dirname, 'register.html'));
 });
-// 회원가입 처리
-app.post('/register', (req, res) => {
-    const { id, pw, address, phone } = req.body;
-    const checkQuery = 'SELECT * FROM users WHERE id = ?';
-    const insertQuery = 'INSERT INTO users (id, password, address, phone) VALUES (?, ?, ?, ?)';
-
-    connection.query(checkQuery, [id], (error, results) => {
-        if (error) {
-            res.status(500).send('회원가입 실패: ' + error.message);
-        } else if (results.length > 0) {
-            // 이미 존재하는 아이디
-            res.redirect('/register?error=duplicate');
-        } else {
-            connection.query(insertQuery, [id, pw, address, phone], (error, results) => {
-                if (error) {
-                    res.status(500).send('회원가입 실패: ' + error.message);
-                } else {
-                    res.redirect('/login');
-                }
-            });
-        }
-    });
-});
+// 회원가입과 로그인은 해시 검증을 사용하는 공통 모듈에서 등록합니다.
+registerAuthRoutes(app, connection);
 
 // 로그인 페이지로 이동하는 경로 처리
 app.get('/login', (req, res) => {
@@ -354,23 +339,6 @@ app.get('/login', (req, res) => {
     res.sendFile(path.join(__dirname, 'login.html'));
 });
 
-// 로그인 처리
-app.post('/login', (req, res) => {
-    const { username, password } = req.body;
-    const query = 'SELECT * FROM users WHERE id = ? AND password = ?';
-
-    connection.query(query, [username, password], (error, results) => {
-        if (error) {
-            res.status(500).send('로그인 실패: ' + error.message);
-        } else if (results.length > 0) {
-            req.session.userId = results[0].id;
-            req.session.user = results[0];
-            res.redirect('/');
-        } else {
-            return res.redirect('/login?error=invalid_credentials');
-        }
-    });
-});
 // /myPage 라우트
 app.get('/myPage', (req, res) => {
     if (!req.session.userId) {
@@ -459,26 +427,10 @@ app.get('/logout', (req, res) => {
 
 
 app.get('/api/clothes', (req, res) => {
-    const { category, search } = req.query;
-
-
-    let sql = 'SELECT * FROM PT';
-
-    // 카테고리와 검색어가 모두 제공된 경우
-    if (category && search) {
-        sql += ` WHERE category = '${category}' AND name LIKE '%${search}%'`;
-    }
-    // 카테고리만 제공된 경우
-    else if (category) {
-        sql += ` WHERE category = '${category}'`;
-    }
-    // 검색어만 제공된 경우
-    else if (search) {
-        sql += ` WHERE name LIKE '%${search}%'`;
-    }
-
-
-    connection.query(sql, (err, results) => {
+    let statement;
+    try { statement = clothesQuery(req.query); }
+    catch { return res.status(400).json({ error: 'Invalid query input' }); }
+    connection.execute(statement.sql, statement.values, (err, results) => {
         if (err) {
             console.error('Error executing MySQL query:', err);
             res.status(500).json({ error: 'Internal server error' });
@@ -523,14 +475,10 @@ app.get('/api/product-id', (req, res) => {
 });
 
 app.get('/clothes/best', (req, res) => {
-    let query = 'SELECT * FROM PT ORDER BY `like` DESC';
-
-    const category = req.query.category;
-    if (category) {
-        query = `SELECT * FROM PT WHERE category = '${category}' ORDER BY \`like\` DESC`;
-    }
-
-    connection.query(query, (err, results) => {
+    let statement;
+    try { statement = bestClothesQuery(req.query); }
+    catch { return res.status(400).send('Invalid query input'); }
+    connection.execute(statement.sql, statement.values, (err, results) => {
         if (err) {
             console.error('Database error:', err);
             return res.status(500).send('Server error');
@@ -680,6 +628,11 @@ app.get('/image/:product_id', (req, res) => {
     });
 });
 
-app.listen(port, () => {
-    console.log(`서버가 http://localhost:${port} 에서 실행 중입니다.`);
-});
+return app;
+}
+
+if (require.main === module) {
+    const port = Number(process.env.PORT) || 3002;
+    createApp().listen(port, () => console.log(`서버가 http://localhost:${port} 에서 실행 중입니다.`));
+}
+module.exports = { createApp };

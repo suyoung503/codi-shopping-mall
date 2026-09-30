@@ -5,7 +5,10 @@
   "description": "Outfit-photo-first shopping mall course project built with Node.js, Express, MySQL, EJS, sessions, and Multer.",
   "main": "codi.js",
   "scripts": {
-    "start": "node codi.js"
+    "start": "node codi.js",
+    "test": "node --test --test-concurrency=1",
+    "passwords:check": "node scripts/migrate-passwords.js",
+    "passwords:migrate": "node scripts/migrate-passwords.js --apply"
   },
   "dependencies": {
     "body-parser": "^1.20.3",
@@ -15,5 +18,8 @@
     "express-session": "^1.18.1",
     "multer": "^1.4.5-lts.1",
     "mysql2": "^3.11.3"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
